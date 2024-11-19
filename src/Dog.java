@@ -1,4 +1,4 @@
-public class Dog {
+public class Dog extends Thread {
     private int x;
     private int y;
     int name;
@@ -9,9 +9,20 @@ public class Dog {
         this.name = name;
     }
 
+    @Override
+    public void run() {
+        while (!Main.simOver) {
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     public void updateLocation(int newX, int newY) {
-        this.x = 1;
-        this.y = 1;
+        this.x = newX;
+        this.y = newY;
     }
 
     public int getX() {

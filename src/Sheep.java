@@ -1,4 +1,4 @@
-public class Sheep {
+public class Sheep extends Thread {
     private int x;
     private int y;
     String name;
@@ -7,6 +7,17 @@ public class Sheep {
         this.x = x;
         this.y = y;
         this.name = name;
+    }
+
+    @Override
+    public void run() {
+        while (!Main.simOver) {
+            try {
+                Thread.sleep(100);  // Simulate movement
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public void updateLocation(int newX, int newY) {
