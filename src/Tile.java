@@ -20,8 +20,8 @@ public class Tile {
         this.occupant = occupant;
     }
 
-    public boolean tryLock() {
-        return lock.tryLock();
+    public void lock() {
+         lock.lock();
     }
 
     public void unlock() {

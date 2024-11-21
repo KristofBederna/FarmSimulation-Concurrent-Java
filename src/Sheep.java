@@ -51,10 +51,7 @@ public class Sheep extends Thread {
         int moveX, moveY;
 
         Tile currentTile = farm[this.getX()][this.getY()];
-        Tile targetTile;
-
-        while (!currentTile.tryLock()) {
-        }
+        currentTile.lock();
 
         try {
             do {
@@ -67,8 +64,10 @@ public class Sheep extends Thread {
 
                 for (int dx = -1; dx <= 1; dx++) {
                     for (int dy = -1; dy <= 1; dy++) {
-                        if (farm[this.getX() + dx][this.getY() + dy].getOccupant() != null &&
-                                farm[this.getX() + dx][this.getY() + dy].getOccupant() instanceof Dog) {
+                        Tile adjacentTile = farm[this.getX() + dx][this.getY() + dy];
+                        Object occupant = adjacentTile.getOccupant();
+
+                        if (occupant instanceof Dog) {
                             dogAdjacent = true;
                             dogX = this.getX() + dx;
                             dogY = this.getY() + dy;
@@ -105,18 +104,11 @@ public class Sheep extends Thread {
                         moveY = -1;
                     }
 
-                    targetTile = farm[this.getX() + moveX][this.getY() + moveY];
-                    while (!targetTile.tryLock()) {
-                    }
-
-                    try {
-                        if (targetTile.isOccupied()) {
-                            moveX = 0;
-                            moveY = 0;
-                            break;
-                        }
-                    } finally {
-                        targetTile.unlock();
+                    Tile targetTile = farm[this.getX() + moveX][this.getY() + moveY];
+                    if (targetTile.isOccupied()) {
+                        moveX = 0;
+                        moveY = 0;
+                        break;
                     }
                 }
             } while ((moveX == 0 && moveY == 0) || !isValidMove(this, moveX, moveY, farm));
@@ -125,27 +117,27 @@ public class Sheep extends Thread {
                 moveX = 0;
                 moveY = 0;
             }
-            currentTile.setOccupant(null);
-            this.updateLocation(this.getX() + moveX, this.getY() + moveY);
 
-            targetTile = farm[this.getX()][this.getY()];
-            while (!targetTile.tryLock()) {
-            }
+            Tile targetTile = farm[this.getX() + moveX][this.getY() + moveY];
+            targetTile.lock();
 
             try {
+                currentTile.setOccupant(null);
+                this.updateLocation(this.getX() + moveX, this.getY() + moveY);
                 targetTile.setOccupant(this);
+
+                if (isAtGate(this, farm.length)) {
+                    Main.simOver = true;
+                    System.out.println(this.name + " has reached the gate and escaped!");
+                }
             } finally {
                 targetTile.unlock();
-            }
-
-            if (isAtGate(this, farm.length)) {
-                Main.simOver = true;
-                System.out.println(this.name + " has reached the gate and escaped!");
             }
         } finally {
             currentTile.unlock();
         }
     }
+
 
 
     private boolean isValidMove(Sheep sheep, int moveX, int moveY, Tile[][] farm) {
