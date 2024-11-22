@@ -48,82 +48,92 @@ public class Sheep extends Thread {
 
     public void move(Dog[] dogs, Tile[][] farm) {
         Random rand = new Random();
-        int moveX, moveY;
+        int moveX = 0, moveY = 0;
+        boolean dogAdjacent = false;
+        int dogX = 0, dogY = 0;
 
         Tile currentTile = farm[this.getX()][this.getY()];
-        currentTile.lock();
+        Tile targetTile = null;
 
-        try {
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                int neighborX = this.getX() + dx;
+                int neighborY = this.getY() + dy;
+
+                if (neighborX < 0 || neighborX >= farm.length || neighborY < 0 || neighborY >= farm[0].length) {
+                    continue;
+                }
+
+                Tile neighborTile = farm[neighborX][neighborY];
+                if (neighborTile.tryLock()) {
+                    try {
+                        if (neighborTile.getOccupant() instanceof Dog) {
+                            dogAdjacent = true;
+                            dogX = neighborX;
+                            dogY = neighborY;
+                            break;
+                        }
+                    } finally {
+                        neighborTile.unlock();
+                    }
+                }
+            }
+            if (dogAdjacent) break;
+        }
+
+        if (dogAdjacent) {
+            if (dogX < this.getX() && dogY < this.getY()) {
+                moveX = 1;
+                moveY = 1;
+            } else if (dogX < this.getX() && dogY == this.getY()) {
+                moveX = 1;
+                moveY = 0;
+            } else if (dogX < this.getX() && dogY > this.getY()) {
+                moveX = 1;
+                moveY = -1;
+            } else if (dogX == this.getX() && dogY < this.getY()) {
+                moveX = 0;
+                moveY = 1;
+            } else if (dogX == this.getX() && dogY > this.getY()) {
+                moveX = 0;
+                moveY = -1;
+            } else if (dogX > this.getX() && dogY < this.getY()) {
+                moveX = -1;
+                moveY = 1;
+            } else if (dogX > this.getX() && dogY == this.getY()) {
+                moveX = -1;
+                moveY = 0;
+            } else if (dogX > this.getX() && dogY > this.getY()) {
+                moveX = -1;
+                moveY = -1;
+            }
+        } else {
             do {
                 moveX = rand.nextInt(3) - 1;
                 moveY = rand.nextInt(3) - 1;
+                int targetX = this.getX() + moveX;
+                int targetY = this.getY() + moveY;
 
-                boolean dogAdjacent = false;
-                int dogX = 0;
-                int dogY = 0;
-
-                for (int dx = -1; dx <= 1; dx++) {
-                    for (int dy = -1; dy <= 1; dy++) {
-                        Tile adjacentTile = farm[this.getX() + dx][this.getY() + dy];
-                        Object occupant = adjacentTile.getOccupant();
-
-                        if (occupant instanceof Dog) {
-                            dogAdjacent = true;
-                            dogX = this.getX() + dx;
-                            dogY = this.getY() + dy;
-                            break;
-                        }
-                    }
-                    if (dogAdjacent) break;
+                if (isValidMove(this, moveX, moveY, farm)) {
+                    targetTile = farm[targetX][targetY];
+                    break;
                 }
+            } while (true);
+        }
 
-                if (dogAdjacent) {
-                    if (dogX < this.getX() && dogY < this.getY()) {
-                        moveX = 1;
-                        moveY = 1;
-                    } else if (dogX < this.getX() && dogY == this.getY()) {
-                        moveX = 1;
-                        moveY = 0;
-                    } else if (dogX < this.getX() && dogY > this.getY()) {
-                        moveX = 1;
-                        moveY = -1;
-                    } else if (dogX == this.getX() && dogY < this.getY()) {
-                        moveX = 0;
-                        moveY = 1;
-                    } else if (dogX == this.getX() && dogY > this.getY()) {
-                        moveX = 0;
-                        moveY = -1;
-                    } else if (dogX > this.getX() && dogY < this.getY()) {
-                        moveX = -1;
-                        moveY = 1;
-                    } else if (dogX > this.getX() && dogY == this.getY()) {
-                        moveX = -1;
-                        moveY = 0;
-                    } else if (dogX > this.getX() && dogY > this.getY()) {
-                        moveX = -1;
-                        moveY = -1;
-                    }
+        int targetX = this.getX() + moveX;
+        int targetY = this.getY() + moveY;
+        targetTile = farm[targetX][targetY];
 
-                    Tile targetTile = farm[this.getX() + moveX][this.getY() + moveY];
-                    if (targetTile.isOccupied()) {
-                        moveX = 0;
-                        moveY = 0;
-                        break;
-                    }
-                }
-            } while ((moveX == 0 && moveY == 0) || !isValidMove(this, moveX, moveY, farm));
+        Tile firstLock = (currentTile.hashCode() < targetTile.hashCode()) ? currentTile : targetTile;
+        Tile secondLock = (firstLock == currentTile) ? targetTile : currentTile;
 
-            if (isAdjacentToDog(this.getX(), this.getY(), dogs)) {
-                moveX = 0;
-                moveY = 0;
-            }
-
-            Tile targetTile = farm[this.getX() + moveX][this.getY() + moveY];
-            targetTile.lock();
-
+        firstLock.lock();
+        try {
+            secondLock.lock();
             try {
                 currentTile.setOccupant(null);
-                this.updateLocation(this.getX() + moveX, this.getY() + moveY);
+                this.updateLocation(targetX, targetY);
                 targetTile.setOccupant(this);
 
                 if (isAtGate(this, farm.length)) {
@@ -131,14 +141,12 @@ public class Sheep extends Thread {
                     System.out.println(this.name + " has reached the gate and escaped!");
                 }
             } finally {
-                targetTile.unlock();
+                secondLock.unlock();
             }
         } finally {
-            currentTile.unlock();
+            firstLock.unlock();
         }
     }
-
-
 
     private boolean isValidMove(Sheep sheep, int moveX, int moveY, Tile[][] farm) {
         int newX = sheep.getX() + moveX;
@@ -153,20 +161,6 @@ public class Sheep extends Thread {
         }
 
         return farm[x][y].isOccupied();
-    }
-
-    private boolean isAdjacentToDog(int newX, int newY, Dog[] dogs) {
-        int dogX = dogs[0].getX();
-        int dogY = dogs[0].getY();
-
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                if (newX + dx == dogX && newY + dy == dogY) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private boolean isAtGate(Sheep sheep, int size) {

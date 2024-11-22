@@ -48,42 +48,40 @@ public class Dog extends Thread {
         Random rand = new Random();
         int deltaX, deltaY;
 
-        Tile currentTile = farm[this.x][this.y];
-        currentTile.lock();
+        Tile currentTile = farm[x][y];
+        Tile targetTile = null;
 
-        try {
-            Tile targetTile;
-            do {
-                deltaX = rand.nextInt(3) - 1;
-                deltaY = rand.nextInt(3) - 1;
+        do {
+            deltaX = rand.nextInt(3) - 1;
+            deltaY = rand.nextInt(3) - 1;
 
-                if (deltaX == 0 && deltaY == 0) continue;
+            int targetX = x + deltaX;
+            int targetY = y + deltaY;
 
-                int targetX = this.x + deltaX;
-                int targetY = this.y + deltaY;
-
-                if (!isValidMove(deltaX, deltaY) || isInsideInnerThird(targetX, targetY)) continue;
-
+            if (isValidMove(deltaX, deltaY) && !isInsideInnerThird(targetX, targetY)) {
                 targetTile = farm[targetX][targetY];
-                targetTile.lock();
-                try {
-                    if (!targetTile.isOccupied()) {
-                        currentTile.setOccupant(null);
-                        this.updateLocation(targetX, targetY);
-                        targetTile.setOccupant(this);
-                        break;
-                    }
-                } finally {
-                    if (targetTile != currentTile) {
-                        targetTile.unlock();
-                    }
-                }
-            } while (true);
+                break;
+            }
+        } while (true);
+
+        Tile firstLock = (currentTile.hashCode() < targetTile.hashCode()) ? currentTile : targetTile;
+        Tile secondLock = (firstLock == currentTile) ? targetTile : currentTile;
+
+        firstLock.lock();
+        try {
+            secondLock.lock();
+            try {
+                currentTile.setOccupant(null);
+                x += deltaX;
+                y += deltaY;
+                targetTile.setOccupant(this);
+            } finally {
+                secondLock.unlock();
+            }
         } finally {
-            currentTile.unlock();
+            firstLock.unlock();
         }
     }
-
 
     private boolean isValidMove(int deltaX, int deltaY) {
         int newX = x + deltaX;

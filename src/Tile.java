@@ -28,6 +28,10 @@ public class Tile {
         lock.unlock();
     }
 
+    public boolean tryLock() {
+        return(lock.tryLock());
+    }
+
     @Override
     public String toString() {
         return occupant == null ? " " : occupant.toString();
