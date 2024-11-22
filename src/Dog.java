@@ -26,19 +26,6 @@ public class Dog extends Thread {
         this.interrupt();
     }
 
-    public void updateLocation(int newX, int newY) {
-        this.x = newX;
-        this.y = newY;
-    }
-
-    public int getX() {
-        return x;
-    }
-
-    public int getY() {
-        return y;
-    }
-
     @Override
     public String toString() {
         return String.valueOf(name);
